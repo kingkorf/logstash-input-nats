@@ -21,29 +21,8 @@ require "nats/client"
 #   input {
 #     # Read events on subject "example" by using an "url" without authentication
 #     nats {
-#       url => "nats://localhost:4222"
+#       servers => "nats://user:pass@localhost:4222,nats://localhost:4223"
 #       subjects => ["example"]
-#     }
-#   }
-#
-# [source,ruby]
-#   input {
-#     # Read events on subject "example" by using an "url" with authentication
-#     nats {
-#       url => "nats://user:passwd@localhost:4222"
-#       subjects => ["example"]
-#     }
-#   }
-#
-# [source,ruby]
-#   input {
-#     # Read events on two subjects by using other paramaters
-#     nats {
-#       host => "localhost"
-#       port => 4222
-#       user => "user"
-#       pass => "password"
-#       subjects => [ "first", "second" ]
 #     }
 #   }
 
@@ -55,26 +34,11 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
   # If undefined, Logstash will complain, even if codec is unused.
   default :codec, "json"
 
-  # The url of nats server to connect on
-  config :url, :validate => :string, :required => false
-
-  # The hostname of the nats server
-  config :host, :validate => :string, :required => false
-
-  # The port to connect on
-  config :port, :validate => :number, :required => false
-
   # SSL
   config :ssl, :validate => :boolean, :default => false
 
-  # User to authenticate with
-  config :user, :validate => :string, :required => false
-
-  # Password to authenticate with
-  config :pass, :validate => :password, :required => false
-
   # Servers to connect to, for clustered usage
-  config :servers, :validate => :array, :required => false
+  config :servers, :validate => :string, :default => nil
 
   # List of subjects to subscribe on
   config :subjects, :validate => :array, :default => ["logstash"]
@@ -106,8 +70,6 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
   public
   def register
     @nats_config = {
-      servers: nil,
-      uri: nil,
       ssl: @ssl,
       name: @name,
       pedantic: @pedantic,
@@ -115,20 +77,11 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
       reconnect_time_wait: @reconnect_time_wait.nil? ? nil : @reconnect_time_wait.value,
       max_reconnect_attempts: @max_reconnect_attempts.nil? ? nil : @max_reconnect_attempts.value
     }
-
-    @nats_server = build_nats_server
-
-    case @nats_server
-    when String
-      @nats_config["uri"] = @nats_server
-    when Array
-      @nats_config["servers"] = @nats_server
-    end
   end # def register
 
 
   def run(queue)
-    NATS.start(@nats_config) do |nats_client|
+    NATS.start(@servers, @nats_config) do |nats_client|
       nats_client.on_error do |error|
         @logger.error(error)
       end
@@ -144,23 +97,4 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
       end
     end
   end
-
-  private
-
-  def build_nats_server
-    if @servers != nil
-      nats_server = @servers
-    elsif @url.nil?
-      if @user.nil? || @pass.nil?
-        nats_server = "nats://#{@host}:#{@port}"
-      else
-        nats_server = "nats://#{@user}:#{@pass.value}@#{@host}:#{@port}"
-      end
-    else
-      @logger.warn("Parameter 'url' is set, ignoring connection parameters: 'host', 'port', 'user' and 'pass'")
-      nats_server = @url
-    end
-    return nats_server
-  end
-
 end # class LogStash::Inputs::Nats
