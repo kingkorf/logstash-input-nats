@@ -7,12 +7,12 @@ require "nats/client"
 # [NOTE]
 # ================================================================================
 # This plugin does not support SSL authentication yet
-# 
+#
 # ================================================================================
 
 # This input plugin will read events from a NATS instance; it does not support NATS streaming instance.
 # This plugin used the following ruby nats client: https://github.com/nats-io/ruby-nats
-# 
+#
 # For more information about Nats, see <http://nats.io>
 #
 # Examples:
@@ -50,13 +50,13 @@ require "nats/client"
 class LogStash::Inputs::Nats < LogStash::Inputs::Base
   config_name "nats"
 
-  milestone 1 
+  milestone 1
 
   # If undefined, Logstash will complain, even if codec is unused.
   default :codec, "json"
 
   # The url of nats server to connect on
-  config :url, :validate => :string
+  config :url, :validate => :string, :required => false
 
   # The hostname of the nats server
   config :host, :validate => :string, :default => "127.0.0.1"
@@ -66,12 +66,15 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
 
   # SSL
   config :ssl, :validate => :boolean, :default => false
-  
+
   # User to authenticate with
   config :user, :validate => :string, :required => false
- 
+
   # Password to authenticate with
   config :pass, :validate => :password, :required => false
+
+  # Servers to connect to, for clustered usage
+  config :servers, :validate => :array, :required => false
 
   # List of subjects to subscribe on
   config :subjects, :validate => :array, :default => ["logstash"]
@@ -101,18 +104,25 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
   config :max_reconnect_attempts, :validate => :number
 
   public
-  def register 
-
-    @nats_server = build_nats_server
-    
+  def register
     @nats_config = {
-      uri: @nats_server,
+      servers: nil,
+      uri: nil,
       ssl: @ssl,
+      name: @name,
       pedantic: @pedantic,
       verbose: @verbose,
       reconnect_time_wait: @reconnect_time_wait.nil? ? nil : @reconnect_time_wait.value,
       max_reconnect_attempts: @max_reconnect_attempts.nil? ? nil : @max_reconnect_attempts.value
     }
+
+    @nats_server = build_nats_server
+
+    case @nats_server
+    when String
+      @nats_config.uri = @nats_server
+    when Array
+      @nats_config.servers = @nats_server
   end # def register
 
 
@@ -134,10 +144,12 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
     end
   end
 
-  private 
+  private
 
   def build_nats_server
-    if @url.nil?
+    if @servers != nil
+      nats_server = @servers
+    elsif @url.nil?
       if @user.nil? || @pass.nil?
         nats_server = "nats://#{@host}:#{@port}"
       else
@@ -148,6 +160,6 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
       nats_server = @url
     end
     return nats_server
-  end  
+  end
 
 end # class LogStash::Inputs::Nats
