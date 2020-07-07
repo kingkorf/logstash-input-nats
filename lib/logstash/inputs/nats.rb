@@ -62,7 +62,7 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
   config :host, :validate => :string, :required => false
 
   # The port to connect on
-  config :port, :validate => :number, :default => 4222
+  config :port, :validate => :number, :required => false
 
   # SSL
   config :ssl, :validate => :boolean, :default => false
