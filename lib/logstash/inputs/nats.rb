@@ -34,20 +34,20 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
   # If undefined, Logstash will complain, even if codec is unused.
   default :codec, "json"
 
+  # Servers to connect to, for clustered usage
+  config :servers, :validate => :string, :required => true
+
   # SSL
   config :ssl, :validate => :boolean, :default => false
 
-  # Servers to connect to, for clustered usage
-  config :servers, :validate => :string, :default => nil
+  # The name of the nats client
+  config :name, :validate => :string, :required => false
 
   # List of subjects to subscribe on
   config :subjects, :validate => :array, :default => ["logstash"]
 
   # The queue group to join if needed
   config :queue_group, :validate => :string, :required => false
-
-  # The name of the nats client
-  config :name, :validate => :string, :required => false
 
   # Path of the private key file if ssl is used
   config :private_key_file, :validate => :string, :required => false
@@ -79,12 +79,12 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
     }
   end # def register
 
-
   def run(queue)
     NATS.start(@servers, @nats_config) do |nats_client|
       nats_client.on_error do |error|
         @logger.error(error)
       end
+
       @subjects.each do |subject|
         @logger.debug("Listening on [#{subject}]")
         nats_client.subscribe(subject, :queue => @queue_group ) do |msg, _, sub|
@@ -95,6 +95,7 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
           end
         end
       end
+
     end
-  end
+  end # def run
 end # class LogStash::Inputs::Nats
