@@ -59,7 +59,7 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
   config :url, :validate => :string, :required => false
 
   # The hostname of the nats server
-  config :host, :validate => :string, :default => "127.0.0.1"
+  config :host, :validate => :string, :required => false
 
   # The port to connect on
   config :port, :validate => :number, :default => 4222
@@ -120,9 +120,10 @@ class LogStash::Inputs::Nats < LogStash::Inputs::Base
 
     case @nats_server
     when String
-      @nats_config.uri = @nats_server
+      @nats_config["uri"] = @nats_server
     when Array
-      @nats_config.servers = @nats_server
+      @nats_config["servers"] = @nats_server
+    end
   end # def register
 
 
